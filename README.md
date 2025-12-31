@@ -16,7 +16,7 @@ This simulator models a stock exchange where multiple trader processes execute t
 ## 📁 Project Structure
 
 ```
-OS_Lab_EL/
+StockExchange/
 ├── README.md                      # Project documentation
 ├── .gitignore                     # Git ignore rules
 │
@@ -286,7 +286,7 @@ Each simulation tracks and reports:
 
 ```
 ╔════════════════════════════════════════════════════════╗
-║   Stock Trading Simulator - OS Concepts Demo          ║
+║   Stock Trading Simulator - OS Concepts Demo           ║
 ╚════════════════════════════════════════════════════════╝
 
 ============================================================
@@ -422,7 +422,7 @@ After studying this project, you should understand:
 
 OS Lab Project
 
-## � License
+## License
 
 This project is for educational purposes as part of an Operating Systems course lab assignment.
 
