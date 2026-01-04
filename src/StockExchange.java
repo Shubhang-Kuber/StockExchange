@@ -93,6 +93,9 @@ public class StockExchange {
     private Map<Integer, Portfolio> portfolios;
     private boolean running;
     
+    // Web Visualization
+    private DataExporter dataExporter;
+    
     public StockExchange(CustomScheduler.Algorithm schedulingAlgo, 
                         VirtualMemoryManager.ReplacementPolicy pageReplacement,
                         int numTraders) {
@@ -104,6 +107,10 @@ public class StockExchange {
         this.tradingSemaphore = new CustomSemaphore("TradingLock", 5); // Max 5 concurrent traders
         this.transactionLog = new TransactionalFS("logs/transactions.log");
         this.monitor = new PerformanceMonitor();
+        
+        // Initialize web visualization
+        this.dataExporter = new DataExporter("web/data");
+        this.dataExporter.clearData();
         
         // Initialize trading components
         this.stocks = new ArrayList<>();
@@ -197,6 +204,9 @@ public class StockExchange {
         while (running) {
             try {
                 Thread.sleep(500);
+                
+                // Export real-time data for visualization
+                exportDataForVisualization();
                 
                 // Check if all traders are done
                 boolean allDone = true;
@@ -300,6 +310,106 @@ public class StockExchange {
         }
         System.out.println("\nActive Traders: " + activeTrades + "/" + traders.size());
         System.out.println("=".repeat(70) + "\n");
+    }
+    
+    private void exportDataForVisualization() {
+        // System status
+        int runningCount = 0;
+        int completedCount = 0;
+        int totalTrades = 0;
+        
+        for (TraderProcess trader : traders) {
+            ProcessControlBlock.State state = trader.getPCB().getState();
+            if (state == ProcessControlBlock.State.RUNNING || 
+                state == ProcessControlBlock.State.READY || 
+                state == ProcessControlBlock.State.WAITING) {
+                runningCount++;
+            } else if (state == ProcessControlBlock.State.TERMINATED) {
+                completedCount++;
+            }
+            totalTrades += trader.getTradesExecuted();
+        }
+        
+        dataExporter.exportSystemStatus(
+            scheduler.getAlgorithm().toString(),
+            traders.size(),
+            runningCount,
+            completedCount,
+            monitor.getElapsedTime(),
+            totalTrades
+        );
+        
+        // Process statistics
+        List<Map<String, Object>> processData = new ArrayList<>();
+        for (TraderProcess trader : traders) {
+            ProcessControlBlock pcb = trader.getPCB();
+            Map<String, Object> p = new HashMap<>();
+            p.put("id", pcb.getProcessId());
+            p.put("name", "Trader-" + pcb.getProcessId());
+            p.put("state", pcb.getState().toString());
+            p.put("priority", pcb.getPriority());
+            p.put("trades", trader.getTradesExecuted());
+            p.put("contextSwitches", pcb.getContextSwitchCount());
+            p.put("waitTime", pcb.getWaitingTime());
+            p.put("cpuTime", pcb.getCPUTime());
+            processData.add(p);
+        }
+        dataExporter.exportProcessStats(processData);
+        
+        // Memory statistics
+        dataExporter.exportMemoryStats(
+            vmm.getPageFaults(),
+            vmm.getPageHits(),
+            vmm.getPageFaultRate() * 100,
+            vmm.isThrashing(),
+            vmm.getUsedFrames(),
+            vmm.getTotalFrames()
+        );
+        
+        // Stock prices
+        Map<String, Double> stockPrices = new HashMap<>();
+        for (Stock stock : stocks) {
+            stockPrices.put(stock.getSymbol(), stock.getCurrentPrice());
+        }
+        dataExporter.exportStockPrices(stockPrices);
+        
+        // Scheduler statistics
+        long totalContextSwitches = 0;
+        long totalWaitTime = 0;
+        long totalTurnaroundTime = 0;
+        int completedTasks = 0;
+        
+        for (TraderProcess trader : traders) {
+            ProcessControlBlock pcb = trader.getPCB();
+            totalContextSwitches += pcb.getContextSwitchCount();
+            totalWaitTime += pcb.getWaitingTime();
+            if (pcb.getState() == ProcessControlBlock.State.TERMINATED) {
+                completedTasks++;
+                totalTurnaroundTime += pcb.getTurnaroundTime();
+            }
+        }
+        
+        double avgWaitTime = traders.size() > 0 ? (double) totalWaitTime / traders.size() : 0;
+        double avgTurnaroundTime = completedTasks > 0 ? (double) totalTurnaroundTime / completedTasks : 0;
+        
+        dataExporter.exportSchedulerStats(
+            scheduler.getAlgorithm().toString(),
+            traders.size(),
+            completedTasks,
+            (int) totalContextSwitches,
+            avgWaitTime,
+            avgTurnaroundTime
+        );
+        
+        // IPC statistics
+        dataExporter.exportIPCStats(
+            orderQueue.getMessagesSent(),
+            orderQueue.getMessagesReceived(),
+            marketData.getReadCount(),
+            marketData.getWriteCount(),
+            tradingSemaphore.getAcquireCount(),
+            tradingSemaphore.getReleaseCount()
+        );
     }
     
     private void printFinalReport() {

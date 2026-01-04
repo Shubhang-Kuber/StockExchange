@@ -79,6 +79,7 @@ public class ProcessControlBlock {
     public long getResponseTime() { return responseTime; }
     public long getTurnaroundTime() { return turnaroundTime; }
     public long getContextSwitchCount() { return contextSwitchCount; }
+    public long getCPUTime() { return burstTime; } // CPU time is same as burst time
     
     public void setState(State state) {
         this.state = state;

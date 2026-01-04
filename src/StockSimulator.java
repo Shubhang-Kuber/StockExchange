@@ -53,19 +53,39 @@ public class StockSimulator {
     // Global verbose flag - set to false for simplified output
     public static boolean VERBOSE = false;
     
+    // Web server for visualization
+    private static WebServer webServer = null;
+    
     public static void main(String[] args) {
-        // Check for verbose flag
-        if (args.length > 0 && args[0].equals("-v")) {
-            VERBOSE = true;
+        // Check for flags
+        boolean enableWeb = false;
+        
+        for (String arg : args) {
+            if (arg.equals("-v")) {
+                VERBOSE = true;
+            } else if (arg.equals("-web")) {
+                enableWeb = true;
+            }
+        }
+        
+        if (VERBOSE) {
             System.out.println(">>> VERBOSE MODE ENABLED <<<\n");
         }
         
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║   Stock Trading Simulator - OS Concepts Demo           ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
-        if (!VERBOSE) {
-            System.out.println("Run with 'java StockSimulator -v' for detailed verbose output\n");
+        
+        if (enableWeb) {
+            // Start web server for visualization
+            webServer = new WebServer(8080, "web");
+            webServer.start();
+            System.out.println("Run with 'java StockSimulator -v -web' for verbose + web mode\n");
         } else {
+            System.out.println("Run with 'java StockSimulator -web' to enable web visualization");
+            if (!VERBOSE) {
+                System.out.println("Run with 'java StockSimulator -v' for detailed verbose output");
+            }
             System.out.println();
         }
         
@@ -178,6 +198,17 @@ public class StockSimulator {
         System.out.println("\n" + "=".repeat(60));
         System.out.println("Simulation Complete!");
         System.out.println("Check logs/transactions.log for transaction history");
+        if (webServer != null) {
+            System.out.println("\n>>> Web Dashboard is still running at http://localhost:8080");
+            System.out.println(">>> Press Ctrl+C to stop the server and exit");
+            
+            // Keep server running
+            try {
+                Thread.currentThread().join();
+            } catch (InterruptedException e) {
+                webServer.stop();
+            }
+        }
         System.out.println("=".repeat(60) + "\n");
     }
 }

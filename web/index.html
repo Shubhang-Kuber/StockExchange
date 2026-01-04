@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Exchange OS Simulator - Real-Time Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>🏛️ Stock Exchange OS Simulator</h1>
+        <p class="subtitle">Real-Time Visualization of Operating System Concepts</p>
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="label">Status:</span>
+                <span id="systemStatus" class="value status-running">●</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Scheduler:</span>
+                <span id="schedulerAlgo" class="value">--</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Elapsed Time:</span>
+                <span id="elapsedTime" class="value">0s</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Total Trades:</span>
+                <span id="totalTrades" class="value">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Row 1: System Overview -->
+        <div class="card">
+            <h2>📊 System Overview</h2>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <div class="metric-label">Total Processes</div>
+                    <div class="metric-value" id="totalProcesses">0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Running</div>
+                    <div class="metric-value running" id="runningProcesses">0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Completed</div>
+                    <div class="metric-value completed" id="completedProcesses">0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Context Switches</div>
+                    <div class="metric-value" id="contextSwitches">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: CPU Scheduler & Memory -->
+        <div class="card">
+            <h2>⚙️ CPU Scheduler</h2>
+            <div class="scheduler-info">
+                <div class="info-row">
+                    <span class="info-label">Algorithm:</span>
+                    <span class="info-value" id="schedulerAlgoDetail">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Avg Wait Time:</span>
+                    <span class="info-value" id="avgWaitTime">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Avg Turnaround:</span>
+                    <span class="info-value" id="avgTurnaround">--</span>
+                </div>
+            </div>
+            <canvas id="schedulerChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>💾 Virtual Memory</h2>
+            <div class="memory-stats">
+                <div class="memory-stat">
+                    <span class="label">Page Faults:</span>
+                    <span class="value" id="pageFaults">0</span>
+                </div>
+                <div class="memory-stat">
+                    <span class="label">Page Hits:</span>
+                    <span class="value" id="pageHits">0</span>
+                </div>
+                <div class="memory-stat">
+                    <span class="label">Fault Rate:</span>
+                    <span class="value" id="faultRate">0%</span>
+                </div>
+                <div class="memory-stat thrashing">
+                    <span class="label">Thrashing:</span>
+                    <span class="value" id="thrashing">NO</span>
+                </div>
+            </div>
+            <canvas id="memoryChart"></canvas>
+        </div>
+
+        <!-- Row 3: Stock Prices -->
+        <div class="card full-width">
+            <h2>📈 Stock Market Prices (Real-Time)</h2>
+            <canvas id="stockChart"></canvas>
+        </div>
+
+        <!-- Row 4: Process States -->
+        <div class="card full-width">
+            <h2>🔄 Process States & Statistics</h2>
+            <div id="processTable" class="process-table"></div>
+        </div>
+
+        <!-- Row 5: IPC Statistics -->
+        <div class="card">
+            <h2>📨 Message Queue</h2>
+            <div class="ipc-stats">
+                <div class="ipc-stat">
+                    <div class="ipc-label">Messages Sent</div>
+                    <div class="ipc-value" id="messagesSent">0</div>
+                </div>
+                <div class="ipc-stat">
+                    <div class="ipc-label">Messages Received</div>
+                    <div class="ipc-value" id="messagesReceived">0</div>
+                </div>
+            </div>
+            <canvas id="ipcMsgChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>🔗 Shared Memory & Semaphore</h2>
+            <div class="ipc-stats">
+                <div class="ipc-stat">
+                    <div class="ipc-label">Shared Memory Reads</div>
+                    <div class="ipc-value" id="sharedMemReads">0</div>
+                </div>
+                <div class="ipc-stat">
+                    <div class="ipc-label">Shared Memory Writes</div>
+                    <div class="ipc-value" id="sharedMemWrites">0</div>
+                </div>
+                <div class="ipc-stat">
+                    <div class="ipc-label">Semaphore Acquires</div>
+                    <div class="ipc-value" id="semaphoreAcquires">0</div>
+                </div>
+                <div class="ipc-stat">
+                    <div class="ipc-label">Semaphore Releases</div>
+                    <div class="ipc-value" id="semaphoreReleases">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 6: Trade History -->
+        <div class="card full-width">
+            <h2>📋 Recent Trade History</h2>
+            <div id="tradeHistory" class="trade-history"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Stock Exchange OS Simulator | Demonstrating: CPU Scheduling • Virtual Memory • IPC • Process Management</p>
+        <p class="update-info">Dashboard updates every 500ms | <span id="lastUpdate">--</span></p>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
