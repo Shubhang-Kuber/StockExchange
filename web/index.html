@@ -11,6 +11,34 @@
     <div class="header">
         <h1>🏛️ Stock Exchange OS Simulator</h1>
         <p class="subtitle">Real-Time Visualization of Operating System Concepts</p>
+        
+        <!-- Algorithm Selection Panel -->
+        <div class="algorithm-selector">
+            <div class="selector-label">Choose CPU Scheduling Algorithm:</div>
+            <div class="algorithm-buttons">
+                <button class="algo-btn" data-algo="FCFS" title="First-Come-First-Served">
+                    <span class="algo-name">FCFS</span>
+                    <span class="algo-desc">First-Come-First-Served</span>
+                </button>
+                <button class="algo-btn" data-algo="SJF" title="Shortest Job First">
+                    <span class="algo-name">SJF</span>
+                    <span class="algo-desc">Shortest Job First</span>
+                </button>
+                <button class="algo-btn" data-algo="PRIORITY" title="Priority Scheduling">
+                    <span class="algo-name">PRIORITY</span>
+                    <span class="algo-desc">Priority Scheduling</span>
+                </button>
+                <button class="algo-btn" data-algo="ROUND_ROBIN" title="Round Robin">
+                    <span class="algo-name">ROUND ROBIN</span>
+                    <span class="algo-desc">Time-Sliced Scheduling</span>
+                </button>
+            </div>
+            <div class="run-instructions">
+                <span class="instruction-icon">ℹ️</span>
+                <span id="runCommand">Stop current simulation (Ctrl+C) and run: <code>java StockSimulator -web -algo FCFS</code></span>
+            </div>
+        </div>
+        
         <div class="status-bar">
             <div class="status-item">
                 <span class="label">Status:</span>

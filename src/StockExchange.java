@@ -109,7 +109,9 @@ public class StockExchange {
         this.monitor = new PerformanceMonitor();
         
         // Initialize web visualization
-        this.dataExporter = new DataExporter("web/data");
+        // Determine data export path (works from both src/ and root directory)
+        String dataPath = new java.io.File("web/data").exists() ? "web/data" : "../web/data";
+        this.dataExporter = new DataExporter(dataPath);
         this.dataExporter.clearData();
         
         // Initialize trading components

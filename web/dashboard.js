@@ -8,12 +8,45 @@ let memoryHistory = {
     faults: [],
     hits: []
 };
+let currentAlgorithm = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeCharts();
+    initializeAlgorithmSelector();
     startDataFetching();
 });
+
+// Initialize algorithm selector buttons
+function initializeAlgorithmSelector() {
+    const buttons = document.querySelectorAll('.algo-btn');
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const algo = button.dataset.algo;
+            selectAlgorithm(algo);
+        });
+    });
+}
+
+// Handle algorithm selection
+function selectAlgorithm(algo) {
+    // Update UI - highlight selected button
+    document.querySelectorAll('.algo-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.closest('.algo-btn').classList.add('active');
+    
+    // Update instruction text
+    const runCommand = document.getElementById('runCommand');
+    const isWindows = navigator.platform.indexOf('Win') > -1;
+    const cd = isWindows ? 'cd' : 'cd';
+    
+    runCommand.innerHTML = `
+        Stop current simulation (Ctrl+C) and run: 
+        <code>java StockSimulator -web -algo ${algo}</code>
+    `;
+}
 
 // Initialize all Chart.js charts
 function initializeCharts() {
@@ -165,6 +198,12 @@ async function fetchSystemStatus() {
         document.getElementById('runningProcesses').textContent = data.runningProcesses;
         document.getElementById('completedProcesses').textContent = data.completedProcesses;
         
+        // Highlight the active algorithm button
+        if (currentAlgorithm !== data.schedulerAlgorithm) {
+            currentAlgorithm = data.schedulerAlgorithm;
+            highlightActiveAlgorithm(data.schedulerAlgorithm);
+        }
+        
         // Update status indicator
         const statusEl = document.getElementById('systemStatus');
         if (data.completedProcesses === data.totalProcesses && data.totalProcesses > 0) {
@@ -177,6 +216,16 @@ async function fetchSystemStatus() {
     } catch (error) {
         // Data not available yet
     }
+}
+
+// Highlight the active algorithm button
+function highlightActiveAlgorithm(algo) {
+    document.querySelectorAll('.algo-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.algo === algo) {
+            btn.classList.add('active');
+        }
+    });
 }
 
 // Fetch process statistics

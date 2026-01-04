@@ -21,10 +21,14 @@ public class WebServer {
     
     public void start() {
         try {
+            // Resolve the absolute path for webRoot
+            File webDir = new File(webRoot);
+            String absoluteWebPath = webDir.getAbsolutePath();
+            
             server = HttpServer.create(new InetSocketAddress(port), 0);
             
             // Handle all requests
-            server.createContext("/", new StaticFileHandler(webRoot));
+            server.createContext("/", new StaticFileHandler(absoluteWebPath));
             
             server.setExecutor(null); // Use default executor
             server.start();
@@ -37,6 +41,10 @@ public class WebServer {
             System.out.println("║   → http://localhost:" + port + "                              ║");
             System.out.println("║                                                        ║");
             System.out.println("║   The dashboard will update automatically in real-time ║");
+            System.out.println("╠════════════════════════════════════════════════════════╣");
+            System.out.println("║   Serving from: " + absoluteWebPath);
+            for (int i = absoluteWebPath.length(); i < 52; i++) System.out.print(" ");
+            System.out.println("║");
             System.out.println("╚════════════════════════════════════════════════════════╝");
             System.out.println();
         } catch (IOException e) {
@@ -73,8 +81,10 @@ public class WebServer {
             File file = new File(webRoot + path);
             
             if (!file.exists() || file.isDirectory()) {
-                // 404 Not Found
-                String response = "404 - File Not Found";
+                // 404 Not Found - show what we tried to access
+                String response = "404 - File Not Found\nTried: " + file.getAbsolutePath() + 
+                                "\nWebRoot: " + webRoot;
+                System.err.println("404: " + file.getAbsolutePath());
                 exchange.sendResponseHeaders(404, response.length());
                 OutputStream os = exchange.getResponseBody();
                 os.write(response.getBytes());
