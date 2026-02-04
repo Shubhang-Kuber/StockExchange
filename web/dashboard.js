@@ -1,457 +1,406 @@
-// Real-Time Stock Exchange OS Dashboard
-// Fetches data every 500ms and updates all visualizations
+/**
+ * Stock Exchange OS Simulator - Real-Time Dashboard
+ * 
+ * Connects to WebServerAPI endpoints and updates live charts/metrics
+ * Updates every 500ms with real-time system data
+ */
 
+const API_URL = 'http://localhost:8080/api';
+const UPDATE_INTERVAL = 500;
+let isConnected = false;
 let charts = {};
-let stockPriceHistory = {};
-let memoryHistory = {
-    timestamps: [],
-    faults: [],
-    hits: []
-};
-let currentAlgorithm = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    initializeUI();
     initializeCharts();
-    initializeAlgorithmSelector();
-    startDataFetching();
+    startUpdates();
+    console.log('✓ Dashboard initialized');
 });
 
-// Initialize algorithm selector buttons
-function initializeAlgorithmSelector() {
-    const buttons = document.querySelectorAll('.algo-btn');
-    
-    buttons.forEach(button => {
-        button.addEventListener('click', () => {
-            const algo = button.dataset.algo;
-            selectAlgorithm(algo);
+// Initialize UI elements
+function initializeUI() {
+    // Algorithm button handlers
+    document.querySelectorAll('.algo-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const algo = this.getAttribute('data-algo');
+            updateRunCommand(algo);
+            // Highlight active button
+            document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
         });
     });
+    
+    // Set initial command
+    updateRunCommand('FCFS');
 }
 
-// Handle algorithm selection
-function selectAlgorithm(algo) {
-    // Update UI - highlight selected button
-    document.querySelectorAll('.algo-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.closest('.algo-btn').classList.add('active');
-    
-    // Update instruction text
-    const runCommand = document.getElementById('runCommand');
-    const isWindows = navigator.platform.indexOf('Win') > -1;
-    const cd = isWindows ? 'cd' : 'cd';
-    
-    runCommand.innerHTML = `
-        Stop current simulation (Ctrl+C) and run: 
-        <code>java StockSimulator -web -algo ${algo}</code>
-    `;
+function updateRunCommand(algo) {
+    const cmd = `java StockSimulator -web -algo ${algo}`;
+    const runCmdEl = document.getElementById('runCommand');
+    runCmdEl.innerHTML = `Stop current simulation (Ctrl+C) and run: <code>${cmd}</code>`;
 }
 
-// Initialize all Chart.js charts
+// Initialize Charts
 function initializeCharts() {
-    // Scheduler Chart (Context Switches over time)
-    const schedulerCtx = document.getElementById('schedulerChart').getContext('2d');
-    charts.scheduler = new Chart(schedulerCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Completed', 'Pending'],
-            datasets: [{
-                label: 'Tasks',
-                data: [0, 0],
-                backgroundColor: ['#10b981', '#f59e0b']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+    // Scheduler Performance Chart
+    const schedulerCtx = document.getElementById('schedulerChart');
+    if (schedulerCtx) {
+        charts.scheduler = new Chart(schedulerCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Avg Wait Time (ms)',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'Avg Turnaround (ms)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }
+                ]
             },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-            }
-        }
-    });
-
-    // Memory Chart (Page Faults vs Hits)
-    const memoryCtx = document.getElementById('memoryChart').getContext('2d');
-    charts.memory = new Chart(memoryCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Page Hits', 'Page Faults'],
-            datasets: [{
-                data: [100, 0],
-                backgroundColor: ['#10b981', '#ef4444']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { 
-                    position: 'bottom',
-                    labels: { color: '#f1f5f9' }
-                }
-            }
-        }
-    });
-
-    // Stock Chart (Real-time prices)
-    const stockCtx = document.getElementById('stockChart').getContext('2d');
-    charts.stock = new Chart(stockCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: []
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: { 
-                    position: 'top',
-                    labels: { color: '#f1f5f9' }
-                }
-            },
-            scales: {
-                y: { 
-                    grid: { color: '#334155' },
-                    ticks: { color: '#94a3b8' }
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    filler: { propagate: true }
                 },
-                x: { 
-                    grid: { display: false },
-                    ticks: { color: '#94a3b8', maxRotation: 0 }
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        max: 1000
+                    }
                 }
             }
-        }
-    });
+        });
+    }
+
+    // Memory Chart - Page Faults vs Hits
+    const memoryCtx = document.getElementById('memoryChart');
+    if (memoryCtx) {
+        charts.memory = new Chart(memoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Page Hits', 'Page Faults'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderColor: '#1e293b',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    // Stock Prices Chart
+    const stockCtx = document.getElementById('stockChart');
+    if (stockCtx) {
+        charts.stock = new Chart(stockCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { 
+                        beginAtZero: false,
+                        title: { display: true, text: 'Price ($)' }
+                    }
+                }
+            }
+        });
+    }
 
     // IPC Message Chart
-    const ipcCtx = document.getElementById('ipcMsgChart').getContext('2d');
-    charts.ipc = new Chart(ipcCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Sent', 'Received'],
-            datasets: [{
-                label: 'Messages',
-                data: [0, 0],
-                backgroundColor: ['#3b82f6', '#10b981']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+    const ipcCtx = document.getElementById('ipcMsgChart');
+    if (ipcCtx) {
+        charts.ipc = new Chart(ipcCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Sent', 'Received'],
+                datasets: [{
+                    label: 'Messages',
+                    data: [0, 0],
+                    backgroundColor: ['#f59e0b', '#10b981'],
+                    borderColor: '#1e293b',
+                    borderWidth: 1
+                }]
             },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-            }
-        }
-    });
-}
-
-// Start fetching data at regular intervals
-function startDataFetching() {
-    fetchAllData();
-    setInterval(fetchAllData, 500); // Update every 500ms
-}
-
-// Fetch all data from JSON files
-async function fetchAllData() {
-    try {
-        await Promise.all([
-            fetchSystemStatus(),
-            fetchProcesses(),
-            fetchMemory(),
-            fetchStocks(),
-            fetchScheduler(),
-            fetchIPC(),
-            fetchTradeHistory()
-        ]);
-        
-        updateLastUpdateTime();
-    } catch (error) {
-        console.error('Error fetching data:', error);
-    }
-}
-
-// Fetch system status
-async function fetchSystemStatus() {
-    try {
-        const response = await fetch('data/system_status.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        
-        document.getElementById('schedulerAlgo').textContent = data.schedulerAlgorithm;
-        document.getElementById('elapsedTime').textContent = Math.floor(data.elapsedTime / 1000) + 's';
-        document.getElementById('totalTrades').textContent = data.totalTrades;
-        document.getElementById('totalProcesses').textContent = data.totalProcesses;
-        document.getElementById('runningProcesses').textContent = data.runningProcesses;
-        document.getElementById('completedProcesses').textContent = data.completedProcesses;
-        
-        // Highlight the active algorithm button
-        if (currentAlgorithm !== data.schedulerAlgorithm) {
-            currentAlgorithm = data.schedulerAlgorithm;
-            highlightActiveAlgorithm(data.schedulerAlgorithm);
-        }
-        
-        // Update status indicator
-        const statusEl = document.getElementById('systemStatus');
-        if (data.completedProcesses === data.totalProcesses && data.totalProcesses > 0) {
-            statusEl.textContent = '● Completed';
-            statusEl.style.color = '#94a3b8';
-        } else {
-            statusEl.textContent = '● Running';
-            statusEl.style.color = '#10b981';
-        }
-    } catch (error) {
-        // Data not available yet
-    }
-}
-
-// Highlight the active algorithm button
-function highlightActiveAlgorithm(algo) {
-    document.querySelectorAll('.algo-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.algo === algo) {
-            btn.classList.add('active');
-        }
-    });
-}
-
-// Fetch process statistics
-async function fetchProcesses() {
-    try {
-        const response = await fetch('data/processes.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        
-        const tableHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Process ID</th>
-                        <th>Name</th>
-                        <th>State</th>
-                        <th>Priority</th>
-                        <th>Trades</th>
-                        <th>Context Switches</th>
-                        <th>Wait Time (ms)</th>
-                        <th>CPU Time (ms)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.processes.map(p => `
-                        <tr>
-                            <td>${p.id}</td>
-                            <td>${p.name}</td>
-                            <td><span class="state-badge state-${p.state}">${p.state}</span></td>
-                            <td>${p.priority}</td>
-                            <td>${p.trades}</td>
-                            <td>${p.contextSwitches}</td>
-                            <td>${p.waitTime}</td>
-                            <td>${p.cpuTime}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-        
-        document.getElementById('processTable').innerHTML = tableHTML;
-        
-        // Update context switches total
-        const totalCS = data.processes.reduce((sum, p) => sum + p.contextSwitches, 0);
-        document.getElementById('contextSwitches').textContent = totalCS;
-    } catch (error) {
-        // Data not available yet
-    }
-}
-
-// Fetch memory statistics
-async function fetchMemory() {
-    try {
-        const response = await fetch('data/memory.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        
-        document.getElementById('pageFaults').textContent = data.pageFaults;
-        document.getElementById('pageHits').textContent = data.pageHits;
-        document.getElementById('faultRate').textContent = data.faultRate + '%';
-        
-        const thrashingEl = document.getElementById('thrashing');
-        thrashingEl.textContent = data.thrashing ? 'YES' : 'NO';
-        thrashingEl.style.color = data.thrashing ? '#ef4444' : '#10b981';
-        
-        // Update memory chart
-        charts.memory.data.datasets[0].data = [data.pageHits, data.pageFaults];
-        charts.memory.update('none');
-    } catch (error) {
-        // Data not available yet
-    }
-}
-
-// Fetch stock prices
-async function fetchStocks() {
-    try {
-        const response = await fetch('data/stocks.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        const timestamp = new Date(data.timestamp).toLocaleTimeString();
-        
-        // Initialize stock history if needed
-        data.stocks.forEach(stock => {
-            if (!stockPriceHistory[stock.symbol]) {
-                stockPriceHistory[stock.symbol] = {
-                    timestamps: [],
-                    prices: []
-                };
-            }
-            
-            const history = stockPriceHistory[stock.symbol];
-            history.timestamps.push(timestamp);
-            history.prices.push(stock.price);
-            
-            // Keep last 20 data points
-            if (history.timestamps.length > 20) {
-                history.timestamps.shift();
-                history.prices.shift();
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
             }
         });
-        
-        // Update chart
-        updateStockChart();
-    } catch (error) {
-        // Data not available yet
     }
 }
 
-// Update stock chart with historical data
-function updateStockChart() {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-    const symbols = Object.keys(stockPriceHistory);
+// Start periodic updates
+function startUpdates() {
+    updateDashboard();
+    setInterval(updateDashboard, UPDATE_INTERVAL);
+}
+
+// Main update function
+async function updateDashboard() {
+    try {
+        // Fetch all data in parallel
+        const [stats, stocks, processes, scheduler, memory, ipc, trades] = await Promise.all([
+            fetch(`${API_URL}/stats`).then(r => r.json()),
+            fetch(`${API_URL}/stocks`).then(r => r.json()),
+            fetch(`${API_URL}/processes`).then(r => r.json()),
+            fetch(`${API_URL}/scheduler`).then(r => r.json()),
+            fetch(`${API_URL}/memory`).then(r => r.json()),
+            fetch(`${API_URL}/ipc`).then(r => r.json()),
+            fetch(`${API_URL}/trades`).then(r => r.json())
+        ]);
+
+        // Update all UI sections
+        updateSystemOverview(stats);
+        updateSchedulerInfo(scheduler);
+        updateMemoryStats(memory);
+        updateStockPrices(stocks);
+        updateProcessTable(processes);
+        updateIPCStats(ipc);
+        updateTradeHistory(trades);
+        updateCharts(scheduler, memory, stocks, ipc);
+        updateLastUpdate();
+        setConnectionStatus(true);
+
+    } catch (error) {
+        console.error('❌ Dashboard update failed:', error);
+        setConnectionStatus(false);
+    }
+}
+
+// Update System Overview metrics
+function updateSystemOverview(stats) {
+    document.getElementById('schedulerAlgo').textContent = stats.schedulerAlgo || '--';
+    document.getElementById('elapsedTime').textContent = (stats.elapsedTime || 0) + 's';
+    document.getElementById('totalTrades').textContent = stats.totalTrades || 0;
+}
+
+// Update Scheduler Info
+function updateSchedulerInfo(scheduler) {
+    document.getElementById('schedulerAlgoDetail').textContent = scheduler.algorithm || '--';
+    document.getElementById('avgWaitTime').textContent = 
+        scheduler.avgWaitTime ? scheduler.avgWaitTime.toFixed(2) + ' ms' : '--';
+    document.getElementById('avgTurnaround').textContent = 
+        scheduler.avgTurnaroundTime ? scheduler.avgTurnaroundTime.toFixed(2) + ' ms' : '--';
+}
+
+// Update Memory Stats
+function updateMemoryStats(memory) {
+    document.getElementById('pageFaults').textContent = memory.pageFaults || 0;
+    document.getElementById('pageHits').textContent = memory.pageHits || 0;
+    document.getElementById('faultRate').textContent = 
+        memory.faultRate ? memory.faultRate.toFixed(2) + '%' : '0%';
     
-    if (symbols.length === 0) return;
+    const thrashingEl = document.getElementById('thrashing');
+    thrashingEl.textContent = memory.thrashing ? 'YES ⚠️' : 'NO ✓';
+    thrashingEl.className = memory.thrashing ? 'value danger' : 'value success';
+}
+
+// Update Stock Prices
+function updateStockPrices(stocks) {
+    if (!stocks || stocks.length === 0) return;
     
-    // Use timestamps from first stock (all should be same)
-    const timestamps = stockPriceHistory[symbols[0]].timestamps;
+    const now = new Date().toLocaleTimeString();
     
-    charts.stock.data.labels = timestamps;
-    charts.stock.data.datasets = symbols.map((symbol, index) => ({
-        label: symbol,
-        data: stockPriceHistory[symbol].prices,
-        borderColor: colors[index % colors.length],
-        backgroundColor: colors[index % colors.length] + '20',
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 4
-    }));
-    
+    if (charts.stock.data.labels.length >= 20) {
+        charts.stock.data.labels.shift();
+    }
+    charts.stock.data.labels.push(now);
+
+    if (charts.stock.data.datasets.length === 0) {
+        const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
+        stocks.forEach((stock, idx) => {
+            charts.stock.data.datasets.push({
+                label: stock.symbol,
+                data: [],
+                borderColor: colors[idx % colors.length],
+                backgroundColor: colors[idx % colors.length] + '20',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 2
+            });
+        });
+    }
+
+    stocks.forEach((stock, idx) => {
+        if (charts.stock.data.datasets[idx]) {
+            if (charts.stock.data.datasets[idx].data.length >= 20) {
+                charts.stock.data.datasets[idx].data.shift();
+            }
+            charts.stock.data.datasets[idx].data.push(stock.price);
+        }
+    });
+
     charts.stock.update('none');
 }
 
-// Fetch scheduler statistics
-async function fetchScheduler() {
-    try {
-        const response = await fetch('data/scheduler.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        
-        document.getElementById('schedulerAlgoDetail').textContent = data.algorithm;
-        document.getElementById('avgWaitTime').textContent = data.avgWaitTime.toFixed(2) + ' ms';
-        document.getElementById('avgTurnaround').textContent = data.avgTurnaroundTime.toFixed(2) + ' ms';
-        
-        // Update scheduler chart
-        charts.scheduler.data.datasets[0].data = [
-            data.completedTasks,
-            data.totalTasks - data.completedTasks
-        ];
-        charts.scheduler.update('none');
-    } catch (error) {
-        // Data not available yet
+// Update Process Table
+function updateProcessTable(processes) {
+    const table = document.getElementById('processTable');
+    
+    if (!processes || processes.length === 0) {
+        table.innerHTML = '<p class="no-data">No processes</p>';
+        return;
+    }
+
+    let html = `<table class="data-table">
+        <thead>
+            <tr>
+                <th>PID</th>
+                <th>State</th>
+                <th>Priority</th>
+                <th>Burst (ms)</th>
+                <th>Wait (ms)</th>
+                <th>Turnaround (ms)</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    processes.forEach(proc => {
+        const stateClass = getStateClass(proc.state);
+        html += `<tr>
+            <td>${proc.pid}</td>
+            <td><span class="badge ${stateClass}">${proc.state}</span></td>
+            <td>${proc.priority}</td>
+            <td>${proc.burstTime}</td>
+            <td>${proc.waitTime}</td>
+            <td>${proc.turnaroundTime}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    table.innerHTML = html;
+}
+
+// Update IPC Statistics
+function updateIPCStats(ipc) {
+    document.getElementById('messagesSent').textContent = ipc.messagesSent || 0;
+    document.getElementById('messagesReceived').textContent = ipc.messagesReceived || 0;
+    document.getElementById('sharedMemReads').textContent = ipc.sharedMemReads || 0;
+    document.getElementById('sharedMemWrites').textContent = ipc.sharedMemWrites || 0;
+    document.getElementById('semaphoreAcquires').textContent = ipc.semaphoreAcquires || 0;
+    document.getElementById('semaphoreReleases').textContent = ipc.semaphoreReleases || 0;
+}
+
+// Update Trade History
+function updateTradeHistory(trades) {
+    const history = document.getElementById('tradeHistory');
+    
+    if (!trades || trades.length === 0) {
+        history.innerHTML = '<p class="no-data">No trades yet</p>';
+        return;
+    }
+
+    let html = `<table class="data-table">
+        <thead>
+            <tr>
+                <th>Trade Details</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    trades.forEach(trade => {
+        html += `<tr><td>${escapeHtml(trade)}</td></tr>`;
+    });
+
+    html += '</tbody></table>';
+    history.innerHTML = html;
+}
+
+// Update all charts
+function updateCharts(scheduler, memory, stocks, ipc) {
+    updateSchedulerChart(scheduler);
+    updateMemoryChart(memory);
+    updateIPCChart(ipc);
+}
+
+function updateSchedulerChart(scheduler) {
+    if (!charts.scheduler) return;
+    
+    const now = new Date().toLocaleTimeString();
+    
+    if (charts.scheduler.data.labels.length >= 15) {
+        charts.scheduler.data.labels.shift();
+        charts.scheduler.data.datasets[0].data.shift();
+        charts.scheduler.data.datasets[1].data.shift();
+    }
+
+    charts.scheduler.data.labels.push(now);
+    charts.scheduler.data.datasets[0].data.push(scheduler.avgWaitTime || 0);
+    charts.scheduler.data.datasets[1].data.push(scheduler.avgTurnaroundTime || 0);
+    charts.scheduler.update('none');
+}
+
+function updateMemoryChart(memory) {
+    if (!charts.memory) return;
+    charts.memory.data.datasets[0].data = [memory.pageHits || 0, memory.pageFaults || 0];
+    charts.memory.update('none');
+}
+
+function updateIPCChart(ipc) {
+    if (!charts.ipc) return;
+    charts.ipc.data.datasets[0].data = [ipc.messagesSent || 0, ipc.messagesReceived || 0];
+    charts.ipc.update('none');
+}
+
+// Utility functions
+function setConnectionStatus(connected) {
+    isConnected = connected;
+    const status = document.getElementById('systemStatus');
+    if (connected) {
+        status.textContent = '● Running';
+        status.className = 'value status-running';
+    } else {
+        status.textContent = '● Offline';
+        status.className = 'value status-offline';
     }
 }
 
-// Fetch IPC statistics
-async function fetchIPC() {
-    try {
-        const response = await fetch('data/ipc.json?' + Date.now());
-        if (!response.ok) return;
-        
-        const data = await response.json();
-        
-        document.getElementById('messagesSent').textContent = data.messageQueue.sent;
-        document.getElementById('messagesReceived').textContent = data.messageQueue.received;
-        document.getElementById('sharedMemReads').textContent = data.sharedMemory.reads;
-        document.getElementById('sharedMemWrites').textContent = data.sharedMemory.writes;
-        document.getElementById('semaphoreAcquires').textContent = data.semaphore.acquires;
-        document.getElementById('semaphoreReleases').textContent = data.semaphore.releases;
-        
-        // Update IPC chart
-        charts.ipc.data.datasets[0].data = [
-            data.messageQueue.sent,
-            data.messageQueue.received
-        ];
-        charts.ipc.update('none');
-    } catch (error) {
-        // Data not available yet
-    }
+function updateLastUpdate() {
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 }
 
-// Fetch trade history
-async function fetchTradeHistory() {
-    try {
-        const response = await fetch('data/trade_history.txt?' + Date.now());
-        if (!response.ok) return;
-        
-        const text = await response.text();
-        const lines = text.trim().split('\n');
-        
-        // Show last 15 trades
-        const recentTrades = lines.slice(-15).reverse();
-        
-        const historyHTML = recentTrades.map(line => {
-            const actionClass = line.includes('BUY') ? 'trade-BUY' : 
-                              line.includes('SELL') ? 'trade-SELL' : '';
-            return `<div class="trade-entry ${actionClass}">${escapeHtml(line)}</div>`;
-        }).join('');
-        
-        document.getElementById('tradeHistory').innerHTML = historyHTML || 
-            '<div class="loading">No trades yet...</div>';
-    } catch (error) {
-        document.getElementById('tradeHistory').innerHTML = 
-            '<div class="loading">Waiting for trade data...</div>';
-    }
+function getStateClass(state) {
+    const map = {
+        'NEW': 'new',
+        'READY': 'ready',
+        'RUNNING': 'running',
+        'WAITING': 'waiting',
+        'TERMINATED': 'completed'
+    };
+    return map[state] || 'default';
 }
 
-// Update last update timestamp
-function updateLastUpdateTime() {
-    const now = new Date();
-    document.getElementById('lastUpdate').textContent = 
-        'Last updated: ' + now.toLocaleTimeString();
-}
-
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
-
-// Handle errors gracefully
-window.addEventListener('error', (e) => {
-    console.error('Dashboard error:', e.error);
-});
