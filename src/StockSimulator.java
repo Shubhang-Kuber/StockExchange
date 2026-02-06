@@ -49,30 +49,92 @@
  * @see CustomScheduler
  * @see VirtualMemoryManager
  */
+import java.io.File;
+
 public class StockSimulator {
     // Global verbose flag - set to false for simplified output
     public static boolean VERBOSE = false;
     
+    // Web server for visualization
+    private static WebServer webServer = null;
+    
     public static void main(String[] args) {
-        // Check for verbose flag
-        if (args.length > 0 && args[0].equals("-v")) {
-            VERBOSE = true;
+        // Check for flags
+        boolean enableWeb = false;
+        String selectedAlgo = null;
+        String selectedPageReplacement = "LRU";
+        
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-v")) {
+                VERBOSE = true;
+            } else if (args[i].equals("-web")) {
+                enableWeb = true;
+            } else if (args[i].equals("-algo") && i + 1 < args.length) {
+                selectedAlgo = args[++i];
+            } else if (args[i].equals("-page") && i + 1 < args.length) {
+                selectedPageReplacement = args[++i];
+            }
+        }
+        
+        if (VERBOSE) {
             System.out.println(">>> VERBOSE MODE ENABLED <<<\n");
         }
         
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║   Stock Trading Simulator - OS Concepts Demo           ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
-        if (!VERBOSE) {
-            System.out.println("Run with 'java StockSimulator -v' for detailed verbose output\n");
+        
+        if (enableWeb) {
+            // Start web server for visualization
+            // Determine web directory path - check if index.html exists
+            String webPath = "web";
+            File webDir = new File(webPath);
+            File indexFile = new File(webDir, "index.html");
+            
+            if (!indexFile.exists()) {
+                // Try parent directory
+                webPath = "../web";
+                webDir = new File(webPath);
+                indexFile = new File(webDir, "index.html");
+                
+                if (!indexFile.exists()) {
+                    System.err.println("ERROR: Could not find web/index.html");
+                    System.err.println("Tried: web/index.html and ../web/index.html");
+                    System.exit(1);
+                }
+            }
+            
+            webServer = new WebServer(8080, webPath);
+            webServer.start();
+            System.out.println("Run with 'java StockSimulator -v -web' for verbose + web mode\n");
         } else {
+            System.out.println("Run with 'java StockSimulator -web' to enable web visualization");
+            if (!VERBOSE) {
+                System.out.println("Run with 'java StockSimulator -v' for detailed verbose output");
+            }
             System.out.println();
         }
         
         // Configuration
         int numTraders = 5;
         
-        // Run simulations with different configurations
+        // If specific algorithm selected, run only that one
+        if (selectedAlgo != null) {
+            CustomScheduler.Algorithm algo = parseAlgorithm(selectedAlgo);
+            VirtualMemoryManager.ReplacementPolicy pagePolicy = parsePageReplacement(selectedPageReplacement);
+            
+            System.out.println("\n" + "=".repeat(60));
+            System.out.println("SIMULATION: " + algo + " Scheduling + " + pagePolicy + " Page Replacement");
+            System.out.println("=".repeat(60));
+            runSimulation(algo, pagePolicy, numTraders);
+            
+            if (!enableWeb) {
+                printComparisonSummary();
+            }
+            return;
+        }
+        
+        // Otherwise run all three simulations (default behavior)
         System.out.println("\n" + "=".repeat(60));
         System.out.println("SIMULATION 1: Priority Scheduling + LRU Page Replacement");
         System.out.println("=".repeat(60));
@@ -96,6 +158,29 @@ public class StockSimulator {
         
         // Print comparison summary
         printComparisonSummary();
+    }
+    
+    private static CustomScheduler.Algorithm parseAlgorithm(String algo) {
+        switch (algo.toUpperCase()) {
+            case "FCFS": return CustomScheduler.Algorithm.FCFS;
+            case "SJF": return CustomScheduler.Algorithm.SJF;
+            case "PRIORITY": return CustomScheduler.Algorithm.PRIORITY;
+            case "ROUND_ROBIN":
+            case "RR": return CustomScheduler.Algorithm.ROUND_ROBIN;
+            default: 
+                System.out.println("Unknown algorithm: " + algo + ", using PRIORITY");
+                return CustomScheduler.Algorithm.PRIORITY;
+        }
+    }
+    
+    private static VirtualMemoryManager.ReplacementPolicy parsePageReplacement(String policy) {
+        switch (policy.toUpperCase()) {
+            case "LRU": return VirtualMemoryManager.ReplacementPolicy.LRU;
+            case "FIFO": return VirtualMemoryManager.ReplacementPolicy.FIFO;
+            default: 
+                System.out.println("Unknown page replacement: " + policy + ", using LRU");
+                return VirtualMemoryManager.ReplacementPolicy.LRU;
+        }
     }
     
     private static void runSimulation(CustomScheduler.Algorithm schedulingAlgo,
@@ -178,6 +263,17 @@ public class StockSimulator {
         System.out.println("\n" + "=".repeat(60));
         System.out.println("Simulation Complete!");
         System.out.println("Check logs/transactions.log for transaction history");
+        if (webServer != null) {
+            System.out.println("\n>>> Web Dashboard is still running at http://localhost:8080");
+            System.out.println(">>> Press Ctrl+C to stop the server and exit");
+            
+            // Keep server running
+            try {
+                Thread.currentThread().join();
+            } catch (InterruptedException e) {
+                webServer.stop();
+            }
+        }
         System.out.println("=".repeat(60) + "\n");
     }
 }

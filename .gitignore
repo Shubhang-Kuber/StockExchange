@@ -5,6 +5,11 @@
 logs/
 *.log
 
+# Web visualization data (generated at runtime)
+web/data/
+*.json
+trade_history.txt
+
 # Package files
 *.jar
 *.war

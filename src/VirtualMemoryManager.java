@@ -219,6 +219,14 @@ public class VirtualMemoryManager {
         return getPageFaultRate() > 0.5;
     }
     
+    public int getUsedFrames() {
+        return frameMap.size();
+    }
+    
+    public int getTotalFrames() {
+        return physicalFrames;
+    }
+    
     @Override
     public String toString() {
         return String.format("VMM[Policy=%s, Frames=%d/%d, PageFaults=%d, Hits=%d, FaultRate=%.2f%%]",

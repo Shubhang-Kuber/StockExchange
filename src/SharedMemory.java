@@ -116,6 +116,10 @@ public class SharedMemory {
     public long getReads() { return reads; }
     public long getWrites() { return writes; }
     
+    // Aliases for consistency with other components
+    public long getReadCount() { return reads; }
+    public long getWriteCount() { return writes; }
+    
     @Override
     public String toString() {
         return String.format("SharedMemory[Entries=%d, Reads=%d, Writes=%d]",
