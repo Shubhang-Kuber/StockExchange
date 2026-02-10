@@ -201,6 +201,10 @@ function updateSystemOverview(stats) {
     document.getElementById('schedulerAlgo').textContent = stats.schedulerAlgo || '--';
     document.getElementById('elapsedTime').textContent = (stats.elapsedTime || 0) + 's';
     document.getElementById('totalTrades').textContent = stats.totalTrades || 0;
+    document.getElementById('totalProcesses').textContent = stats.totalProcesses || 0;
+    document.getElementById('runningProcesses').textContent = stats.runningProcesses || 0;
+    document.getElementById('completedProcesses').textContent = stats.completedProcesses || 0;
+    document.getElementById('contextSwitches').textContent = stats.contextSwitches || 0;
 }
 
 // Update Scheduler Info

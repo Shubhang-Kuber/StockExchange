@@ -109,7 +109,22 @@ public class WebServerAPI {
         json.append("\"timestamp\":").append(System.currentTimeMillis()).append(",");
         json.append("\"schedulerAlgo\":\"").append(simulator.getSchedulerAlgorithm()).append("\",");
         json.append("\"elapsedTime\":").append(simulator.getElapsedTimeSeconds()).append(",");
-        json.append("\"totalTrades\":").append(simulator.getTotalTrades());
+        json.append("\"totalTrades\":").append(simulator.getTotalTrades()).append(",");
+        
+        // Add missing fields for system overview
+        List<ProcessControlBlock> processes = simulator.getAllProcesses();
+        int totalProcesses = processes.size();
+        int runningProcesses = 0;
+        int completedProcesses = 0;
+        for (ProcessControlBlock pcb : processes) {
+            if (pcb.getState() == ProcessControlBlock.State.RUNNING) runningProcesses++;
+            if (pcb.getState() == ProcessControlBlock.State.TERMINATED) completedProcesses++;
+        }
+        
+        json.append("\"totalProcesses\":").append(totalProcesses).append(",");
+        json.append("\"runningProcesses\":").append(runningProcesses).append(",");
+        json.append("\"completedProcesses\":").append(completedProcesses).append(",");
+        json.append("\"contextSwitches\":").append(simulator.getTotalContextSwitches());
         json.append("}");
         
         sendResponse(exchange, json.toString(), 200);
@@ -221,7 +236,10 @@ public class WebServerAPI {
     }
     
     private void sendResponse(HttpExchange exchange, String response, int statusCode) throws IOException {
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        // Only set Content-Type if not already set (for static files)
+        if (!exchange.getResponseHeaders().containsKey("Content-Type")) {
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        }
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
         

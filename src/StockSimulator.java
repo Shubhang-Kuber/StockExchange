@@ -50,13 +50,18 @@
  * @see VirtualMemoryManager
  */
 import java.io.File;
+import java.util.List;
+import java.util.ArrayList;
 
 public class StockSimulator {
     // Global verbose flag - set to false for simplified output
     public static boolean VERBOSE = false;
     
     // Web server for visualization
-    private static WebServer webServer = null;
+    private static WebServerAPI webServer = null;
+    
+    // Store StockExchange instance for web API access
+    private static StockExchange currentExchange = null;
     
     public static void main(String[] args) {
         // Check for flags
@@ -104,9 +109,15 @@ public class StockSimulator {
                 }
             }
             
-            webServer = new WebServer(8080, webPath);
-            webServer.start();
-            System.out.println("Run with 'java StockSimulator -v -web' for verbose + web mode\n");
+            try {
+                webServer = new WebServerAPI(StockSimulator.getInstance());
+                webServer.start();
+                System.out.println("Run with 'java StockSimulator -v -web' for verbose + web mode\n");
+            } catch (Exception e) {
+                System.err.println("ERROR: Failed to start web server: " + e.getMessage());
+                e.printStackTrace();
+                System.exit(1);
+            }
         } else {
             System.out.println("Run with 'java StockSimulator -web' to enable web visualization");
             if (!VERBOSE) {
@@ -188,6 +199,7 @@ public class StockSimulator {
                                      int numTraders) {
         try {
             StockExchange exchange = new StockExchange(schedulingAlgo, pageReplacement, numTraders);
+            currentExchange = exchange; // Store for web API access
             exchange.start();
             
             // Wait a bit for completion
@@ -281,79 +293,139 @@ public class StockSimulator {
     // Web Server API Getters
     // =========================
     
+    public static StockSimulator getInstance() {
+        return new StockSimulator();
+    }
+    
+    public StockExchange getStockExchange() {
+        return currentExchange;
+    }
+    
     public String getSchedulerAlgorithm() {
-        return "FCFS"; // Will be updated during simulation
+        if (currentExchange == null) return "--";
+        return currentExchange.getScheduler().getAlgorithm().toString();
     }
     
     public long getElapsedTimeSeconds() {
-        return 0L; // Will be calculated in simulation
+        if (currentExchange == null) return 0L;
+        // Calculate elapsed time from trader start times
+        long maxTime = 0;
+        for (TraderProcess trader : currentExchange.getTraders()) {
+            long traderTime = trader.getPCB().getBurstTime();
+            if (traderTime > maxTime) maxTime = traderTime;
+        }
+        return maxTime / 1000;
     }
     
     public int getTotalTrades() {
-        return 0; // Will be updated during simulation
+        if (currentExchange == null) return 0;
+        int totalTrades = 0;
+        for (TraderProcess trader : currentExchange.getTraders()) {
+            totalTrades += trader.getTradesExecuted();
+        }
+        return totalTrades;
     }
     
     public List<Stock> getStocks() {
-        return new ArrayList<>(); // Return simulated stocks
+        if (currentExchange == null) return new ArrayList<>();
+        return currentExchange.getStocks();
     }
     
     public List<ProcessControlBlock> getAllProcesses() {
-        return new ArrayList<>(); // Return all processes
+        if (currentExchange == null) return new ArrayList<>();
+        List<ProcessControlBlock> processes = new ArrayList<>();
+        for (TraderProcess trader : currentExchange.getTraders()) {
+            processes.add(trader.getPCB());
+        }
+        return processes;
     }
     
     public long getTotalContextSwitches() {
-        return 0L; // Will be calculated
+        if (currentExchange == null) return 0L;
+        return currentExchange.getScheduler().getTotalContextSwitches();
     }
     
     public double getAverageWaitTime() {
-        return 0.0;
+        if (currentExchange == null) return 0.0;
+        List<ProcessControlBlock> processes = getAllProcesses();
+        if (processes.isEmpty()) return 0.0;
+        long totalWait = 0;
+        for (ProcessControlBlock pcb : processes) {
+            totalWait += pcb.getWaitingTime();
+        }
+        return (double) totalWait / processes.size();
     }
     
     public double getAverageTurnaroundTime() {
-        return 0.0;
+        if (currentExchange == null) return 0.0;
+        List<ProcessControlBlock> processes = getAllProcesses();
+        if (processes.isEmpty()) return 0.0;
+        long totalTurnaround = 0;
+        for (ProcessControlBlock pcb : processes) {
+            totalTurnaround += pcb.getTurnaroundTime();
+        }
+        return (double) totalTurnaround / processes.size();
     }
     
     public long getPageFaults() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getVMM().getPageFaults();
     }
     
     public long getPageHits() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getVMM().getPageHits();
     }
     
     public double getFaultRate() {
-        return 0.0;
+        if (currentExchange == null) return 0.0;
+        return currentExchange.getVMM().getPageFaultRate() * 100;
     }
     
     public boolean isThrashing() {
-        return false;
+        if (currentExchange == null) return false;
+        return currentExchange.getVMM().isThrashing();
     }
     
     public long getMessagesSent() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getOrderQueue().getMessagesSent();
     }
     
     public long getMessagesReceived() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getOrderQueue().getMessagesReceived();
     }
     
     public long getSharedMemReads() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getMarketData().getReadCount();
     }
     
     public long getSharedMemWrites() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getMarketData().getWriteCount();
     }
     
     public long getSemaphoreAcquires() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getScheduler().getTotalContextSwitches();
     }
     
     public long getSemaphoreReleases() {
-        return 0L;
+        if (currentExchange == null) return 0L;
+        return currentExchange.getScheduler().getTotalContextSwitches();
     }
     
     public List<String> getRecentTrades(int limit) {
-        return new ArrayList<>(); // Return trade history
+        if (currentExchange == null) return new ArrayList<>();
+        List<String> trades = new ArrayList<>();
+        for (TraderProcess trader : currentExchange.getTraders()) {
+            int traderId = trader.getPCB().getProcessId();
+            int tradeCount = trader.getTradesExecuted();
+            trades.add("Trader " + traderId + ": " + tradeCount + " trades");
+            if (trades.size() >= limit) break;
+        }
+        return trades;
     }
 }
