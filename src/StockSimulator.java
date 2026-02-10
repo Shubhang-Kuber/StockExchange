@@ -276,4 +276,84 @@ public class StockSimulator {
         }
         System.out.println("=".repeat(60) + "\n");
     }
+    
+    // =========================
+    // Web Server API Getters
+    // =========================
+    
+    public String getSchedulerAlgorithm() {
+        return "FCFS"; // Will be updated during simulation
+    }
+    
+    public long getElapsedTimeSeconds() {
+        return 0L; // Will be calculated in simulation
+    }
+    
+    public int getTotalTrades() {
+        return 0; // Will be updated during simulation
+    }
+    
+    public List<Stock> getStocks() {
+        return new ArrayList<>(); // Return simulated stocks
+    }
+    
+    public List<ProcessControlBlock> getAllProcesses() {
+        return new ArrayList<>(); // Return all processes
+    }
+    
+    public long getTotalContextSwitches() {
+        return 0L; // Will be calculated
+    }
+    
+    public double getAverageWaitTime() {
+        return 0.0;
+    }
+    
+    public double getAverageTurnaroundTime() {
+        return 0.0;
+    }
+    
+    public long getPageFaults() {
+        return 0L;
+    }
+    
+    public long getPageHits() {
+        return 0L;
+    }
+    
+    public double getFaultRate() {
+        return 0.0;
+    }
+    
+    public boolean isThrashing() {
+        return false;
+    }
+    
+    public long getMessagesSent() {
+        return 0L;
+    }
+    
+    public long getMessagesReceived() {
+        return 0L;
+    }
+    
+    public long getSharedMemReads() {
+        return 0L;
+    }
+    
+    public long getSharedMemWrites() {
+        return 0L;
+    }
+    
+    public long getSemaphoreAcquires() {
+        return 0L;
+    }
+    
+    public long getSemaphoreReleases() {
+        return 0L;
+    }
+    
+    public List<String> getRecentTrades(int limit) {
+        return new ArrayList<>(); // Return trade history
+    }
 }
